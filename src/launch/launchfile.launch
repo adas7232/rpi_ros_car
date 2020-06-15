@@ -1,0 +1,4 @@
+ <launch>
+    <node pkg="rpi_ros_car" type="dist_Measure.py" name="dist_measure" />
+    <node pkg="rpi_ros_car" type="obstacle_avoid.py" name="obstacle_avoid" output="screen"/>
+</launch>
