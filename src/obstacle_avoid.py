@@ -145,8 +145,8 @@ def callback(msg):
     
     #movebot()
 
-def movebot():
-    global dist_front, dist_left, dist_right
+def movebot(dist_front, dist_right, dist_left):
+    # global dist_front, dist_left, dist_right
     flc = 33 # front left command
     frc = 30 # front right command
     rlc = 33 # rear left command
@@ -191,10 +191,10 @@ if __name__ == '__main__':
         pub = rospy.Publisher('distance_msg', Pose2D, queue_size=100)
         rospy.init_node('us_pos_measure', anonymous=True)
         pos_info = Pose2D() 
-        #rate = rospy.Rate(10) 
-        rospy.init_node('dist_listener', anonymous=True)
-        rospy.Subscriber('distance_msg', Pose2D, callback)
-        rate = rospy.Rate(5)
+        rate = rospy.Rate(10) 
+        # rospy.init_node('dist_listener', anonymous=True)
+        # rospy.Subscriber('distance_msg', Pose2D, callback)
+        # rate = rospy.Rate(5)
         # spin() simply keeps python from exiting until this node is stopped        
         while not rospy.is_shutdown():
             distance_c = measuredDistance(echo_c)
@@ -205,7 +205,8 @@ if __name__ == '__main__':
             pos_info.theta = distance_l
             rospy.loginfo(pos_info)
             pub.publish(pos_info) 
-            movebot() 
+            movebot(distance_c, distance_r, distance_l) 
+            #print("Is is moving yet?")
             rate.sleep()             
         #movebot()
     except rospy.ROSInterruptException:
