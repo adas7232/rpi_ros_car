@@ -1,3 +1,4 @@
  <launch>
     <node pkg="rpi_ros_car" type="obstacle_avoid.py" name="obstacle_avoid" output="screen"/>
+    <node pkg="rpi_ros_car" type="dist_listener.py" name="dist_listener" />
 </launch>

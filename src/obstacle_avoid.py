@@ -135,13 +135,13 @@ def all_stop():
     pwm_front_left.stop()
     pwm_front_right.stop()   
     
-def callback(msg):
-    global dist_front, dist_left, dist_right
-    # rospy.loginfo("Received a POSE2D message!")
-    rospy.loginfo_throttle(2, "distance in cm: [%f,%f,%f]"%(msg.x, msg.y, msg.theta))
-    dist_front = round(msg.x, 2)
-    dist_right = round(msg.y, 2)
-    dist_left = round(msg.theta, 2)    
+# def callback(msg):
+#     global dist_front, dist_left, dist_right
+#     # rospy.loginfo("Received a POSE2D message!")
+#     rospy.loginfo_throttle(2, "distance in cm: [%f,%f,%f]"%(msg.x, msg.y, msg.theta))
+#     dist_front = round(msg.x, 2)
+#     dist_right = round(msg.y, 2)
+#     dist_left = round(msg.theta, 2)    
     
     #movebot()
 
