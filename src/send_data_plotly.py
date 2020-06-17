@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 import time
 import numpy as np
 from numpy import random
-
+import os
+os.system("rostopic echo -b ./bagfiles/distance_2020-06-17-05-41-22.bag -p /distance_msg > data.txt")
 data1 = np.loadtxt("./bagfiles/data.txt", delimiter=',', skiprows=1,  unpack=True)
 trace0 = go.Scatter(
     x=data1[0,:],

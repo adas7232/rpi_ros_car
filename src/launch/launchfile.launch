@@ -1,4 +1,5 @@
  <launch>
     <node pkg="rpi_ros_car" type="obstacle_avoid.py" name="obstacle_avoid" output="screen"/>
     <node pkg="rpi_ros_car" type="dist_listener.py" name="dist_listener" />
+    <node pkg="rosbag" type="record" name="distance" args="-o /home/pi/catkin_ws/src/rpi_ros_car/src/bagfiles/distance.bag /distance_msg"/> 
 </launch>
