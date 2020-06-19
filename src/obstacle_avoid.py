@@ -6,6 +6,7 @@ import time
 from time import sleep
 import RPi.GPIO as gpio
 import pdb
+from pykalman import KalmanFilter
 # Initialization for flobal variables
 dist_front = 0
 dist_left = 0
@@ -186,6 +187,12 @@ def movebot(dist_front, dist_right, dist_left):
             all_stop()
             sleep(1.5)
 
+def kalmanfilt(xp, yp, pq, rr):
+    Kp = pq/(pq + rr)
+    xp = xp + Kp*(yp - xp)    
+    pq = (1 - Kp)*pq    
+    return xp,pq
+#
 if __name__ == '__main__':
     try:
         pub = rospy.Publisher('distance_msg', Pose2D, queue_size=100)
@@ -195,14 +202,18 @@ if __name__ == '__main__':
         # rospy.init_node('dist_listener', anonymous=True)
         # rospy.Subscriber('distance_msg', Pose2D, callback)
         # rate = rospy.Rate(5)
-        # spin() simply keeps python from exiting until this node is stopped        
+        # spin() simply keeps python from exiting until this node is stopped     
+        xp = 30.0
+        rp =  5.0
+        pq = 200.0
         while not rospy.is_shutdown():
             distance_c = measuredDistance(echo_c)
             distance_r = measuredDistance(echo_r)
             distance_l = measuredDistance(echo_l)
+            xn, pn = kalmanfilt(xp, distance_c, pq, rp) 
             pos_info.x = distance_c
-            pos_info.y = distance_r
-            pos_info.theta = distance_l
+            pos_info.y = xn
+            pos_info.theta = xn
             rospy.loginfo(pos_info)
             pub.publish(pos_info) 
             movebot(distance_c, distance_r, distance_l) 
