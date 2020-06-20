@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os, sys
 import rospy
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import Pose2D, Twist
 import time
 from time import sleep
 import RPi.GPIO as gpio
@@ -187,37 +187,49 @@ def movebot(dist_front, dist_right, dist_left):
             all_stop()
             sleep(1.5)
 
-def kalmanfilt(xp, yp, pq, rr):
-    Kp = pq/(pq + rr)
-    xp = xp + Kp*(yp - xp)    
-    pq = (1 - Kp)*pq    
-    return xp,pq
+def kalmanfilt(xp, yp, pq, qq, rr):
+    for indx in range(5):
+        pq = pq + qq
+        Kp = pq/(pq + rr)
+        xp = xp + Kp*(yp - xp)    
+        pq = (1 - Kp)*pq        
+        return xp
 #
 if __name__ == '__main__':
     try:
-        pub = rospy.Publisher('distance_msg', Pose2D, queue_size=100)
         rospy.init_node('us_pos_measure', anonymous=True)
+        pub1 = rospy.Publisher('distance_msg', Pose2D, queue_size=100)
         pos_info = Pose2D() 
-        rate = rospy.Rate(10) 
-        # rospy.init_node('dist_listener', anonymous=True)
-        # rospy.Subscriber('distance_msg', Pose2D, callback)
-        # rate = rospy.Rate(5)
-        # spin() simply keeps python from exiting until this node is stopped     
-        xp = 30.0
-        rp =  5.0
+        pub2 = rospy.Publisher('dist_filt_msg', Twist, queue_size=100)
+        pos_filt_info = Twist() 
+        rate = rospy.Rate(10)           
+        xp = 80.0
+        rr =  3e-3
         pq = 200.0
+        qq = 1e-5
+        dist_filt_c = 0
+        dist_filt_r = 0
+        dist_filt_l = 0
+        # xn, pn = kalmanfilt(xp, distance_c, pq, rr)
         while not rospy.is_shutdown():
             distance_c = measuredDistance(echo_c)
             distance_r = measuredDistance(echo_r)
-            distance_l = measuredDistance(echo_l)
-            xn, pn = kalmanfilt(xp, distance_c, pq, rp) 
+            distance_l = measuredDistance(echo_l)     
+            # calculating filtered distance            
+            dist_filt_c = kalmanfilt(xp, dist_filt_c, pq, qq, rr)    
+            dist_filt_r = kalmanfilt(xp, dist_filt_r, pq, qq, rr)
+            dist_filt_l = kalmanfilt(xp, dist_filt_l, pq, qq, rr)  
+            pos_filt_info.linear.x = dist_filt_c
+            pos_filt_info.linear.y = dist_filt_r
+            pos_filt_info.linear.z = dist_filt_l
+            pub2.publish(pos_filt_info) 
             pos_info.x = distance_c
-            pos_info.y = xn
-            pos_info.theta = xn
+            pos_info.y = distance_r
+            pos_info.theta = distance_l
             rospy.loginfo(pos_info)
-            pub.publish(pos_info) 
+            pub1.publish(pos_info) 
             movebot(distance_c, distance_r, distance_l) 
-            #print("Is is moving yet?")
+            # 
             rate.sleep()             
         #movebot()
     except rospy.ROSInterruptException:
