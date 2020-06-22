@@ -153,12 +153,12 @@ def movebot(dist_front, dist_right, dist_left):
     rlc = 33 # rear left command
     rrc = 30 # rear right command
     dist_lim_front = 40
-    dist_lim_right = 10
-    dist_lim_left = 10
+    dist_lim_right = 30
+    dist_lim_left = 30
     if dist_front > dist_lim_front and dist_left > dist_lim_left and dist_right > dist_lim_right:        
         print("Just drive forward ...")
         drive(flc, frc, rlc, rrc)                       
-    elif dist_front > dist_lim_front or dist_left > dist_lim_left or dist_right > dist_lim_right:
+    elif dist_front < dist_lim_front or dist_left < dist_lim_left or dist_right < dist_lim_right:
         print("Wait, there is something on my way ...")
         all_stop()
         sleep(2)  
@@ -187,13 +187,13 @@ def movebot(dist_front, dist_right, dist_left):
             all_stop()
             sleep(1.5)
 
-def kalmanfilt(xp, yp, pq, qq, rr):
+def kalmanfilt(X0, P0, Q, R, y_meas):
     for indx in range(5):
-        pq = pq + qq
-        Kp = pq/(pq + rr)
-        xp = xp + Kp*(yp - xp)    
-        pq = (1 - Kp)*pq        
-        return xp
+        P0 = P0 + Q
+        Kp = P0/(P0 + R)
+        X0 = X0 + Kp*(y_meas - X0)    
+        P0 = (1 - Kp)*P0        
+        return X0
 #
 if __name__ == '__main__':
     try:
@@ -202,23 +202,21 @@ if __name__ == '__main__':
         pos_info = Pose2D() 
         pub2 = rospy.Publisher('dist_filt_msg', Twist, queue_size=100)
         pos_filt_info = Twist() 
-        rate = rospy.Rate(10)           
-        xp = 80.0
-        rr =  3e-3
-        pq = 200.0
-        qq = 1e-5
-        dist_filt_c = 0
-        dist_filt_r = 0
-        dist_filt_l = 0
-        # xn, pn = kalmanfilt(xp, distance_c, pq, rr)
+        rate = rospy.Rate(10)          
+        Q = 0.5   
+        R = 241.64    
+        P0 = R
+        dist_filt_c = 80.0
+        dist_filt_r = 70.0
+        dist_filt_l = 70.0        
         while not rospy.is_shutdown():
             distance_c = measuredDistance(echo_c)
             distance_r = measuredDistance(echo_r)
             distance_l = measuredDistance(echo_l)     
             # calculating filtered distance            
-            dist_filt_c = kalmanfilt(xp, dist_filt_c, pq, qq, rr)    
-            dist_filt_r = kalmanfilt(xp, dist_filt_r, pq, qq, rr)
-            dist_filt_l = kalmanfilt(xp, dist_filt_l, pq, qq, rr)  
+            dist_filt_c = kalmanfilt(dist_filt_c, P0, Q, R, distance_c)   
+            dist_filt_r = kalmanfilt(dist_filt_r, P0, Q, R, distance_r)
+            dist_filt_l = kalmanfilt(dist_filt_l, P0, Q, R, distance_l)
             pos_filt_info.linear.x = dist_filt_c
             pos_filt_info.linear.y = dist_filt_r
             pos_filt_info.linear.z = dist_filt_l
