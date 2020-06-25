@@ -7,6 +7,10 @@ from time import sleep
 import RPi.GPIO as gpio
 import pdb
 from pykalman import KalmanFilter
+from mpu6050 import mpu6050
+from math import atan2, sqrt, pi
+import time
+import numpy as np
 # Initialization for flobal variables
 dist_front = 0
 dist_left = 0
@@ -135,16 +139,55 @@ def all_stop():
     pwm_rear_right.stop()
     pwm_front_left.stop()
     pwm_front_right.stop()   
-    
-# def callback(msg):
-#     global dist_front, dist_left, dist_right
-#     # rospy.loginfo("Received a POSE2D message!")
-#     rospy.loginfo_throttle(2, "distance in cm: [%f,%f,%f]"%(msg.x, msg.y, msg.theta))
-#     dist_front = round(msg.x, 2)
-#     dist_right = round(msg.y, 2)
-#     dist_left = round(msg.theta, 2)    
-    
-    #movebot()
+####### IMU Sensor Data ###########
+sensor = mpu6050(0x68)
+sensor.set_accel_range(0x08) # max |4g|
+sensor.read_accel_range(False)
+sensor.set_gyro_range(0x08) # max |500 deg/sec|
+sensor.read_gyro_range(False)
+# accelerometer - m/s^2
+# gyro - degree
+# temp - degC
+timer = time.time()
+dt = 0
+# 
+gyro_ang_x = 0.0
+gyro_ang_y = 0.0
+gyro_ang_z = 0.0
+#
+def get_imu_data():
+    global gyro_ang_x, gyro_ang_y, gyro_ang_z, timer, dt
+    accel_data = sensor.get_accel_data(g=False)
+    gyro_data = sensor.get_gyro_data()
+    temp = sensor.get_temp()
+    #
+    acc_x = accel_data['x'] - 1.672041
+    acc_y = accel_data['y'] + 0.567635
+    acc_z = accel_data['z'] - 10.295464
+    #
+    gyro_x = gyro_data['x'] + 2.620154
+    gyro_y = gyro_data['y'] - 1.139438
+    gyro_z = gyro_data['z'] + 0.277876
+    #
+    #pdb.set_trace() #########################################################
+    ## Calculating angle from accelerometer
+    roll_acc_deg = atan2(acc_y, sqrt(pow(acc_x, 2) + pow(acc_z, 2))) * 180 / pi            
+    pitch_acc_deg = atan2(-1*acc_x, sqrt(pow(acc_y, 2) + pow(acc_z, 2))) * 180 / pi
+    yaw_acc_deg = atan2(acc_z,  sqrt(pow(acc_x, 2) + pow(acc_z, 2))) * 180 / pi
+    ## Calculating gyro angle
+    gyro_ang_x = gyro_ang_x + gyro_x * dt
+    gyro_ang_y = gyro_ang_y + gyro_y * dt
+    gyro_ang_z = gyro_ang_z + gyro_z * dt
+    ## Finally calculating roll pitch and yaw
+    roll_deg = 0.9615 * gyro_ang_x + 0.0385 * roll_acc_deg
+    pitch_deg = 0.9615 * gyro_ang_y + 0.0385 * pitch_acc_deg
+    yaw_deg = 0.9615 * gyro_ang_z + 0.0385 * yaw_acc_deg 
+    ## timer 
+    sleep(0.5)                 
+    dt = time.time() - timer
+    timer = time.time()
+    return roll_deg, pitch_deg, yaw_deg
+###########################################movebot()
 
 def movebot(dist_front, dist_right, dist_left):
     # global dist_front, dist_left, dist_right
@@ -202,6 +245,8 @@ if __name__ == '__main__':
         pos_info = Pose2D() 
         pub2 = rospy.Publisher('dist_filt_msg', Twist, queue_size=100)
         pos_filt_info = Twist() 
+        pub3 = rospy.Publisher('IMU_msg', Twist, queue_size=100)
+        imu_data = Twist() 
         rate = rospy.Rate(10)          
         Q = 0.5   
         R = 241.64    
@@ -210,6 +255,14 @@ if __name__ == '__main__':
         dist_filt_r = 70.0
         dist_filt_l = 70.0        
         while not rospy.is_shutdown():
+            # getting IMU data
+            roll_deg, pitch_deg, yaw_deg=get_imu_data()
+            imu_data.angular.x = roll_deg
+            imu_data.angular.y = pitch_deg
+            imu_data.angular.z = yaw_deg
+            pub3.publish(imu_data)
+            rospy.loginfo(imu_data)
+            # Getting distane data
             distance_c = measuredDistance(echo_c)
             distance_r = measuredDistance(echo_r)
             distance_l = measuredDistance(echo_l)     
@@ -223,8 +276,7 @@ if __name__ == '__main__':
             pub2.publish(pos_filt_info) 
             pos_info.x = distance_c
             pos_info.y = distance_r
-            pos_info.theta = distance_l
-            rospy.loginfo(pos_info)
+            pos_info.theta = distance_l            
             pub1.publish(pos_info) 
             movebot(distance_c, distance_r, distance_l) 
             # 
